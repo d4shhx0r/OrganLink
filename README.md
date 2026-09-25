@@ -3,7 +3,7 @@
 > **A Secure, Transparent, and Auditable Organ Transplantation Management Architecture Inspired by Blockchain Healthcare Research**
 >
 > **Developed by [Debashish Bordoloi](https://www.linkedin.com/in/debashishbordoloi/)**  
-> **Live Production System:** [https://organ-link-seven.vercel.app](https://organ-link-seven.vercel.app) • **GitHub:** [https://github.com/d4shhx0r/OrganLink](https://github.com/d4shhx0r/OrganLink)
+> **Live Production System:** [https://organ-link-seven.vercel.app](https://organ-link-seven.vercel.app) 
 
 ---
 
