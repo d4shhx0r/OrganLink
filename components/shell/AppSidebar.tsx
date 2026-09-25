@@ -9,6 +9,7 @@ import {
   HeartHandshake,
   Users,
   Activity,
+  GitCompare,
   ShieldCheck,
   UserCheck,
   FlaskConical,
@@ -49,6 +50,7 @@ export function AppSidebar({ role, isOpen, onClose }: AppSidebarProps) {
       { label: "Donors", href: "/app/donors", icon: HeartHandshake },
       { label: "Recipients / Patients", href: "/app/recipients", icon: Users },
       { label: "Organs", href: "/app/organs", icon: Activity },
+      { label: "Organ Matching", href: "/app/matching", icon: GitCompare },
       { label: "Audit Log", href: "/app/audit", icon: ShieldCheck },
       { label: "Profile", href: "/app/profile", icon: UserCheck },
     ];

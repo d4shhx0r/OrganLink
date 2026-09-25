@@ -1,4 +1,4 @@
-# OrganLink — Healthcare Registry & Organ Donation Platform
+# OrganLink — Healthcare Registry & Transparent Matching Platform
 
 A production-grade, secure healthcare platform built with Next.js 14 App Router, TypeScript, Tailwind CSS, Supabase Auth, and PostgreSQL.
 
@@ -6,7 +6,7 @@ This system is an academic research prototype based on the core functional workf
 > *"An Implementation Perspective of Blockchain Technology in Leveraging Organ Donation in a Transparent Mode to both Patients and Donors"*
 
 > [!NOTE]
-> **Research Prototype Notice**: OrganLink implements the paper's transparent organ donation and procurement workflow using a conventional secure web architecture (PostgreSQL, Row Level Security, and Cryptographic SHA-256 Hash Chaining) instead of blockchain. It is designed for research and prototyping and is **not** certified for real-world clinical decision-making or production medical allocations.
+> **Research Prototype Notice**: OrganLink implements the paper's transparent organ donation, procurement, and recipient ranking workflow using a conventional secure web architecture (PostgreSQL, Row Level Security, and Cryptographic SHA-256 Hash Chaining) instead of blockchain. It is designed for research, simulation, and academic benchmarking and is **not** certified for real-world clinical decision-making or production medical allocations.
 
 ---
 
@@ -26,22 +26,37 @@ This system is an academic research prototype based on the core functional workf
                    ┌─────────────────────┼─────────────────────┐
                    │                     │                     │
                  DONOR               RECIPIENT              HOSPITAL
-            (Consent, HLA)        (Urgency, Organ)     (Review & Procure)
+            (Consent, HLA)        (Urgency, Organ)     (Review & Match)
                    │                     │                     │
                    └─────────────────────┼─────────────────────┘
                                          ▼
                                ORGAN REGISTRY & CORE
                                          │
                                          ▼
-                               PostgreSQL Database
-                               (Enforced with RLS)
+                           TRANSPARENT MATCHING ENGINE
+                                         │
+             ┌───────────────────────────┼───────────────────────────┐
+             ▼                           ▼                           ▼
+            ABO                        TISSUE                     URGENCY
+       COMPATIBILITY                 COMPARISON                 AND WAITING
+             │                           │                           │
+             └───────────────────────────┼───────────────────────────┘
+                                         ▼
+                              RESEARCH MATCHING SCORE
                                          │
                                          ▼
-                            Tamper-Evident Audit Ledger
+                               DETERMINISTIC RANKING
                                          │
                                          ▼
-                            SHA-256 Cryptographic Chain
-                       (Block N Hash embeds Block N-1 Hash)
+                                    HUMAN REVIEW
+                          (Separation of Algorithm & Decision)
+                                         │
+                                         ▼
+                             Tamper-Evident Audit Ledger
+                                         │
+                                         ▼
+                             SHA-256 Cryptographic Chain
+                        (Block N Hash embeds Block N-1 Hash)
 ```
 
 ---
@@ -49,7 +64,7 @@ This system is an academic research prototype based on the core functional workf
 ## 2. Core Workflow (Preserved from Research Paper)
 
 1. **Donor Registration**:
-   - A donor or clinical center registers donor demographic details, ABO blood group, HLA tissue typing (`tissue_type`), facility location, and consent status.
+   - Demographic details, ABO blood group, HLA tissue typing (`tissue_type`), facility location, and consent status are recorded.
    - Initial state is set to `pending`.
 2. **Hospital Clinical Review**:
    - Authorized hospital clinicians or platform administrators review the donor application.
@@ -61,97 +76,109 @@ This system is an academic research prototype based on the core functional workf
    - Status defaults to `available`.
 4. **Recipient / Patient Registration**:
    - Patients requiring an organ are registered with ABO blood group, HLA tissue profile, required organ, facility location, and medical urgency (`status_1_critical`, `status_2_urgent`, `routine`).
-   - Waiting time (`waiting_since`) is captured to establish priority for the upcoming Phase 3 matching engine.
-5. **Cryptographic Audit Provenance**:
-   - Every mutation is authorized server-side and recorded in `audit_logs` using SHA-256 hash chaining.
+   - Waiting time (`waiting_since`) is captured in UTC to establish priority.
+5. **Deterministic Candidate Ranking**:
+   - Available organs are matched against the active recipient waiting list pool.
+   - Hard constraints (organ type match, active status, major ABO compatibility) are enforced.
+   - Eligible candidates receive a normalized 0–100 Research Matching Score with transparent factor breakdowns.
+6. **Human Review Boundary**:
+   - The software NEVER makes automatic medical allocation decisions.
+   - Authorized clinicians review the ranking and log a human review decision.
+7. **Cryptographic Audit Provenance**:
+   - Every mutation and matching run is recorded in `audit_logs` using SHA-256 hash chaining.
 
 ---
 
-## 3. Database Schema & Tables
+## 3. Matching Engine Methodology
+
+> [!IMPORTANT]
+> **Academic Transparency Statement**:
+> The source paper identifies blood group, tissue type, medical urgency, and waiting time as matching considerations but does **not** provide a complete reproducible numerical weighting formula. OrganLink therefore implements a transparent configurable research scoring model using these exact criteria.
+
+### Hard Constraints vs. Soft Factors
+
+1. **Hard Constraints (Exclusion Criteria)**:
+   - **Organ Type Match**: Patient must require the exact organ type procured (`recipient.required_organ == organ.organ_type`).
+   - **Active Status**: Patient status must be `active`. Suspended or inactive patients are excluded.
+   - **ABO Compatibility**: Donor must be ABO compatible with recipient (e.g. O can donate to O, A, B, AB; A to A, AB; B to B, AB; AB to AB). Major ABO mismatch causes immediate exclusion from primary ranking with an explicit explanation.
+
+2. **Soft Scoring Factors (Weighted Criteria)**:
+   - **Blood Group Concordance** ($W_{\text{blood}} = 0.40$):
+     - Identical match (e.g. O+ &rarr; O+): factor = $1.00$
+     - Universal/compatible transfer (e.g. O+ &rarr; A+): factor = $0.95$
+     - Rh difference (e.g. Rh+ &rarr; Rh-): factor = $0.90$
+   - **HLA Tissue Typing Concordance** ($W_{\text{tissue}} = 0.30$):
+     - Exact match on all tested loci: factor = $1.00$
+     - Partial match: factor = $0.30 + 0.70 \times \left(\frac{\text{shared loci}}{\text{total loci}}\right)$
+     - Complete mismatch: factor = $0.05$
+     - Insufficient data: factor = $0.25$ (with explicit disclaimer: *"Insufficient structured tissue data for clinical-grade comparison"*)
+   - **Medical Urgency** ($W_{\text{urgency}} = 0.20$):
+     - `status_1_critical`: factor = $1.00$
+     - `status_2_urgent`: factor = $0.70$
+     - `routine`: factor = $0.40$
+   - **Waiting Time** ($W_{\text{waiting}} = 0.10$):
+     - Linear normalization scaling up to 730 days (~2 years): $\min\left(1.0, \max\left(0.05, \frac{\text{days}}{730}\right)\right)$
+
+### Research Score Formula
+
+$$\text{Research Score} = \Big( S_{\text{blood}} \cdot W_{\text{blood}} + S_{\text{tissue}} \cdot W_{\text{tissue}} + S_{\text{urgency}} \cdot W_{\text{urgency}} + S_{\text{waiting}} \cdot W_{\text{waiting}} \Big) \times 100$$
+
+### Deterministic Tie-Breaking
+When candidates achieve identical research scores:
+1. Candidate with higher medical urgency score ranks first.
+2. Candidate with longer accumulated waiting time ranks first.
+3. Alphabetical order of unique patient reference (`recipient_reference`) as a deterministic tie-breaker.
+
+---
+
+## 4. Database Schema & Tables
 
 ### Tables Overview
 
-1. **`profiles`**
-   - References `auth.users(id) ON DELETE CASCADE`.
-   - Fields: `id`, `email`, `full_name`, `role` (`app_role` enum), `avatar_url`, `phone`, `blood_group`, `created_at`, `updated_at`.
-2. **`donors`**
-   - Fields: `id`, `profile_id`, `donor_reference` (unique), `full_name`, `date_of_birth`, `gender`, `blood_group`, `tissue_type`, `location`, `contact_information`, `medical_status`, `consent_status`, `approval_status`, `approved_by`, `approved_at`, `created_at`, `updated_at`.
-   - Indexed on: `blood_group`, `tissue_type`, `approval_status`, `profile_id`.
-3. **`recipients`**
-   - Fields: `id`, `profile_id`, `recipient_reference` (unique), `full_name`, `date_of_birth`, `gender`, `blood_group`, `tissue_type`, `required_organ`, `location`, `medical_urgency`, `waiting_since`, `status`, `created_at`, `updated_at`.
-   - Indexed on: `blood_group`, `tissue_type`, `required_organ`, `medical_urgency`, `waiting_since`, `status`, `profile_id`.
-4. **`organs`**
-   - Fields: `id`, `organ_reference` (unique), `organ_type`, `donor_id` (references `donors.id`), `blood_group`, `tissue_type`, `location`, `availability_status`, `available_at`, `expiry_at`, `created_at`, `updated_at`.
-   - Indexed on: `organ_type`, `availability_status`, `blood_group`, `tissue_type`, `donor_id`.
-5. **`audit_logs`**
-   - Fields: `id`, `actor_user_id`, `actor_role`, `action`, `entity_type`, `entity_id`, `previous_state`, `new_state`, `metadata`, `previous_hash`, `current_hash`, `created_at`.
-   - Indexed on: `created_at DESC`, `entity_type`, `entity_id`, `actor_user_id`.
+1. **`profiles`**: References `auth.users(id)` with assigned `app_role` (`admin`, `hospital`, `donor`, `recipient`).
+2. **`donors`**: Complete donor records, HLA typing, consent, and hospital approval status (`pending`, `approved`, `rejected`).
+3. **`recipients`**: Active recipient waiting list with required organ, HLA profile, urgency, and waiting time.
+4. **`organs`**: Procured organs linked to approved donors, with availability status (`available`, `reserved`, `allocated`, `transplanted`, `unavailable`).
+5. **`matching_runs`**: Persists each matching run, organ ID, algorithm version, configuration weights, candidate counts, and executor.
+6. **`matching_results`**: Individual candidate results per run with rank, research score, factor breakdowns, and exclusion reasons.
+7. **`matching_reviews`**: Human clinical review records linked to matching runs, enforcing clinical accountability.
+8. **`audit_logs`**: Append-only cryptographic audit chain embedding previous block SHA-256 hashes.
 
 ---
 
-## 4. Role-Based Access Control (RBAC) & Row Level Security (RLS)
+## 5. Role-Based Access Control (RBAC) & Row Level Security (RLS)
 
-| Role | Dashboard | Donors | Recipients | Organs | Audit Log | Profile |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Admin** | Full Overview | View / Create / Review | View / Create | View / Register / Update | Full View & Verify | View & Edit |
-| **Hospital** | Full Overview | View / Create / Review | View / Create | View / Register / Update | Full View & Verify | View & Edit |
-| **Donor** | My Donation | View / Register Own | &mdash; | View Own Donated | &mdash; | View & Edit |
-| **Recipient** | My Request | &mdash; | View / Register Own | &mdash; | &mdash; | View & Edit |
-
-### Strict RLS Policy Guarantees:
-- **Append-Only Audit Trail**: `audit_logs` has **NO UPDATE** and **NO DELETE** policies for any authenticated role.
-- **Anti-Self-Escalation**: Donors cannot approve their own registration; the RLS policy forbids updating `approval_status` unless the caller is `hospital` or `admin`.
-- **Profile Protection**: Users cannot modify their own `role` field.
-
----
-
-## 5. Tamper-Evident Cryptographic Audit Chain
-
-OrganLink provides tamper-evident integrity without the high latency and transaction costs of blockchain:
-
-$$\text{Block}_0: \quad \text{previous\_hash} = \text{GENESIS\_BLOCK\_ORGANLINK}$$
-$$\text{Block}_N: \quad \text{current\_hash} = \text{SHA-256}(\text{previous\_hash} + \text{action} + \text{entity} + \text{payload} + \text{timestamp})$$
-
-The client application includes a real-time verification utility (`verifyAuditChainIntegrity()`) accessible on `/app/audit` that sequentially validates that each record's link and recalculated hash are authentic.
+| Role | Dashboard | Donors | Recipients | Organs | Matching Engine | Audit Log | Profile |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Admin** | Full Overview | Full Management | Full Management | Full Management | Execute & Review | Full View & Verify | View & Edit |
+| **Hospital** | Full Overview | Full Management | Full Management | Full Management | Execute & Review | Full View & Verify | View & Edit |
+| **Donor** | My Donation | View / Register Own | &mdash; | View Own Donated | &mdash; | &mdash; | View & Edit |
+| **Recipient** | My Request | &mdash; | View / Register Own | &mdash; | &mdash; | &mdash; | View & Edit |
 
 ---
 
 ## 6. Supabase Setup Instructions
 
 1. Log in to [Supabase Dashboard](https://supabase.com/dashboard) and navigate to **SQL Editor**.
-2. Run the initial migration:
-   - `supabase/migrations/20240101000000_create_profiles.sql` (Creates `app_role`, `profiles`, and auth triggers).
-3. Run the Phase 2 core entities migration:
-   - `supabase/migrations/20260925_organlink_core_entities.sql` (Creates `donors`, `recipients`, `organs`, `audit_logs`, and RLS policies).
+2. Run migrations sequentially:
+   - `supabase/migrations/20240101000000_create_profiles.sql` (Profiles, roles, and auth trigger).
+   - `supabase/migrations/20260925_organlink_core_entities.sql` (Donors, recipients, organs, audit logs, RLS).
+   - `supabase/migrations/20260925_organlink_matching_engine.sql` (Matching runs, matching results, matching reviews, RLS).
 
 ---
 
-## 7. Local Development
+## 7. Running Locally & Testing
 
 ```bash
 # 1. Install dependencies
 npm install
 
-# 2. Configure environment variables in .env.local
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# 2. Run matching engine unit tests
+npx tsx tests/matching-engine.test.ts
 
-# 3. Run development server
-npm run dev
-
-# 4. Run production build test
+# 3. Test production build
 npm run build
 npm run start
 ```
 
 Visit [http://localhost:3000](http://localhost:3000).
-
----
-
-## 8. Deployment to Vercel
-
-1. Commit and push repository changes to GitHub.
-2. Link the repository to Vercel.
-3. Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel Project Settings.
-4. Set **Site URL** in Supabase Auth Settings to your Vercel deployment URL.
-5. Deploy.

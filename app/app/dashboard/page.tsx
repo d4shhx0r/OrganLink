@@ -10,6 +10,7 @@ import {
   PlusCircle,
   FileCheck,
   AlertCircle,
+  GitCompare,
 } from "lucide-react";
 import type { AppRole } from "@/lib/types/organlink";
 
@@ -54,13 +55,22 @@ export default async function DashboardPage() {
     current_hash: string;
   }> = [];
 
+  let recentMatchingRuns: Array<{
+    id: string;
+    organ_id: string;
+    algorithm_version: string;
+    candidate_count: number;
+    eligible_count: number;
+    generated_at: string;
+  }> = [];
+
   // User-specific records for donor/recipient roles
   let myDonorRecord = null;
   let myRecipientRecord = null;
 
   try {
     if (role === "admin" || role === "hospital") {
-      const [donorsRes, pendingRes, recipientsRes, organsRes, auditRes] =
+      const [donorsRes, pendingRes, recipientsRes, organsRes, auditRes, runsRes] =
         await Promise.all([
           supabase.from("donors").select("id", { count: "exact", head: true }),
           supabase
@@ -79,6 +89,11 @@ export default async function DashboardPage() {
             .select("id, action, entity_type, entity_id, created_at, current_hash")
             .order("created_at", { ascending: false })
             .limit(5),
+          supabase
+            .from("matching_runs")
+            .select("id, organ_id, algorithm_version, candidate_count, eligible_count, generated_at")
+            .order("generated_at", { ascending: false })
+            .limit(3),
         ]);
 
       totalDonors = donorsRes.count || 0;
@@ -86,6 +101,7 @@ export default async function DashboardPage() {
       totalRecipients = recipientsRes.count || 0;
       availableOrgans = organsRes.count || 0;
       recentAuditLogs = auditRes.data || [];
+      recentMatchingRuns = runsRes.data || [];
     } else if (role === "donor") {
       const { data: donor } = await supabase
         .from("donors")
@@ -268,6 +284,84 @@ export default async function DashboardPage() {
                   Profile patient urgency and waiting time for Phase 3 engine.
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Matching Overview Section */}
+          <div className="p-6 rounded-2xl bg-white border border-[#E5E7EB] shadow-subtle space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GitCompare className="w-4 h-4 text-[#7C00D9]" />
+                <h2 className="text-base font-semibold text-[#171717]">
+                  Matching Overview
+                </h2>
+              </div>
+              <Link
+                href="/app/matching"
+                className="text-xs text-[#7C00D9] hover:underline font-medium flex items-center gap-1"
+              >
+                <span>Launch Matching Engine</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <p className="text-xs text-[#6B7280]">
+              Transparent candidate ranking engine based on ABO blood compatibility, HLA tissue typing, research urgency weighting, and accumulated waiting time.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="p-3.5 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-between text-xs">
+                <span className="text-[#6B7280]">Available Organs Ready:</span>
+                <span className="font-semibold text-[#171717]">
+                  {availableOrgans > 0 ? `${availableOrgans} organ(s)` : "None currently registered"}
+                </span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] flex items-center justify-between text-xs">
+                <span className="text-[#6B7280]">Active Waiting Candidates:</span>
+                <span className="font-semibold text-[#171717]">
+                  {totalRecipients > 0 ? `${totalRecipients} patient(s)` : "No active patients"}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <span className="text-xs font-semibold text-[#171717] block mb-2">
+                Recent Matching Runs:
+              </span>
+              {recentMatchingRuns.length === 0 ? (
+                <div className="p-4 rounded-xl bg-[#F9FAFB] border border-[#F3F4F6] text-xs text-[#9CA3AF] text-center">
+                  No matching runs yet. Select an available organ to run the candidate matching algorithm.
+                </div>
+              ) : (
+                <div className="divide-y divide-[#F3F4F6]">
+                  {recentMatchingRuns.map((run) => (
+                    <div
+                      key={run.id}
+                      className="py-2.5 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-[#7C00D9]/10 text-[#7C00D9]">
+                          {run.algorithm_version}
+                        </span>
+                        <span className="text-[#4B5563]">
+                          {run.eligible_count} of {run.candidate_count} eligible
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[#9CA3AF] text-[11px]">
+                          {new Date(run.generated_at).toLocaleDateString()}
+                        </span>
+                        <Link
+                          href={`/app/matching/history/${run.id}`}
+                          className="text-[#7C00D9] hover:underline font-medium text-[11px]"
+                        >
+                          View Run
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
