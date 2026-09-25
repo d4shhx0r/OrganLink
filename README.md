@@ -1,150 +1,157 @@
-# OrganLink — Healthcare Authentication & Organ Donation Platform
+# OrganLink — Healthcare Registry & Organ Donation Platform
 
-A clean, modern, production-quality authentication system built with Next.js App Router, TypeScript, Tailwind CSS, and Supabase Auth & PostgreSQL.
+A production-grade, secure healthcare platform built with Next.js 14 App Router, TypeScript, Tailwind CSS, Supabase Auth, and PostgreSQL.
 
-Designed following the **"Minimal, calm, premium, precise"** design philosophy with professional purple accents (`#7C00D9`), light neutral surfaces (`#F1F3F3`), near-black typography (`#171717`), and subtle micro-interactions.
+This system is an academic research prototype based on the core functional workflow described in:
+> *"An Implementation Perspective of Blockchain Technology in Leveraging Organ Donation in a Transparent Mode to both Patients and Donors"*
 
----
-
-## 1. Architecture & Tech Stack
-
-- **Framework**: Next.js 14 (App Router, Server & Client Components)
-- **Language**: TypeScript (strict mode)
-- **Styling**: Tailwind CSS with custom design tokens (`globals.css`)
-- **Authentication**: Supabase Auth (`@supabase/ssr`, `@supabase/supabase-js`)
-- **Database & Security**: PostgreSQL with Row-Level Security (RLS) & security definer functions
-- **Form Management**: React Hook Form + Zod validation resolver
-- **Icons**: Lucide React
-- **Motion**: Framer Motion (subtle, calm page & transition animations)
+> [!NOTE]
+> **Research Prototype Notice**: OrganLink implements the paper's transparent organ donation and procurement workflow using a conventional secure web architecture (PostgreSQL, Row Level Security, and Cryptographic SHA-256 Hash Chaining) instead of blockchain. It is designed for research and prototyping and is **not** certified for real-world clinical decision-making or production medical allocations.
 
 ---
 
-## 2. Directory Structure
+## 1. System Architecture
 
 ```
-OrganLink/
-├── app/
-│   ├── app/
-│   │   └── dashboard/
-│   │       ├── page.tsx            # Protected dashboard route
-│   │       └── LogoutButton.tsx    # Accessible Supabase logout action
-│   ├── login/
-│   │   └── page.tsx                # Dynamic server login route
-│   ├── globals.css                 # Design tokens, variables & focus styles
-│   ├── layout.tsx                  # Root layout, Inter font, SEO & OpenGraph
-│   └── page.tsx                    # Root route router (/ -> /app/dashboard or /login)
-├── components/
-│   ├── auth/
-│   │   ├── AuthInput.tsx           # Accessible text input with label & error
-│   │   ├── AuthMethodSelector.tsx  # Initial screen: Continue with Email / Google
-│   │   ├── LoginForm.tsx           # Credentials form with validation & safe errors
-│   │   ├── LoginPage.tsx           # Screen container with Framer Motion transitions
-│   │   ├── PasswordInput.tsx       # Masked password with accessible eye toggle
-│   │   └── SocialLoginButton.tsx   # Google SSO UI with coming soon notice
-│   └── ui/
-│       ├── Button.tsx              # Reusable button with variants & loading state
-│       └── Input.tsx               # Base styled input component
-├── lib/
-│   ├── supabase/
-│   │   ├── client.ts               # Browser client (@supabase/ssr)
-│   │   ├── middleware.ts           # Middleware session handler & route guard
-│   │   └── server.ts               # Server client with Next.js cookies
-│   └── validations/
-│       └── auth.ts                 # Zod validation schema (loginSchema)
-├── public/
-│   ├── favicon.svg                 # Crisp vector favicon
-│   └── logo.svg                    # Geometric interlocking rings mark
-├── supabase/
-│   └── migrations/
-│       └── 20240101000000_create_profiles.sql  # Profiles table, roles & RLS
-├── middleware.ts                   # Route protection middleware
-├── .env.example                    # Template environment variables
-├── .env.local                      # Local environment configuration
-├── package.json
-├── tailwind.config.ts
-├── tsconfig.json
-└── README.md
+                                  ORGANLINK CLIENT
+                                         │
+                                  Authentication
+                                         │
+                                  Supabase Auth
+                                         │
+                                         ▼
+                                   Role / RBAC
+                        (admin, hospital, donor, recipient)
+                                         │
+                   ┌─────────────────────┼─────────────────────┐
+                   │                     │                     │
+                 DONOR               RECIPIENT              HOSPITAL
+            (Consent, HLA)        (Urgency, Organ)     (Review & Procure)
+                   │                     │                     │
+                   └─────────────────────┼─────────────────────┘
+                                         ▼
+                               ORGAN REGISTRY & CORE
+                                         │
+                                         ▼
+                               PostgreSQL Database
+                               (Enforced with RLS)
+                                         │
+                                         ▼
+                            Tamper-Evident Audit Ledger
+                                         │
+                                         ▼
+                            SHA-256 Cryptographic Chain
+                       (Block N Hash embeds Block N-1 Hash)
 ```
 
 ---
 
-## 3. Supabase Setup
+## 2. Core Workflow (Preserved from Research Paper)
 
-### Step 1: Create Supabase Project
-1. Go to [https://supabase.com/dashboard](https://supabase.com/dashboard) and create a new project.
-2. Under **Project Settings -> API**, copy:
-   - **Project URL**
-   - **anon public** API key
-
-### Step 2: Run Database Migration
-Open your Supabase project's **SQL Editor** and execute the contents of `supabase/migrations/20240101000000_create_profiles.sql`.
-
-This script:
-- Creates the `app_role` enum (`admin`, `hospital`, `donor`, `recipient`).
-- Creates the `profiles` table referencing `auth.users(id) ON DELETE CASCADE`.
-- Enables **Row Level Security (RLS)** with policies protecting user data and preventing unauthorized role escalation.
-- Creates an automated database trigger (`on_auth_user_created`) to create a profile entry upon user registration.
-
----
-
-## 4. Environment Variables
-
-Create a `.env.local` file in the root directory:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-```
+1. **Donor Registration**:
+   - A donor or clinical center registers donor demographic details, ABO blood group, HLA tissue typing (`tissue_type`), facility location, and consent status.
+   - Initial state is set to `pending`.
+2. **Hospital Clinical Review**:
+   - Authorized hospital clinicians or platform administrators review the donor application.
+   - Decision transition: `pending` &rarr; `approved` (or `rejected`).
+   - Every approval decision appends a tamper-evident cryptographic block to the audit ledger.
+3. **Organ Availability Registration**:
+   - Once a donor is clinically `approved`, authorized medical staff can register procured organs (`kidney`, `liver`, `heart`, `lung`, `cornea`).
+   - Unapproved donors cannot have organs registered.
+   - Status defaults to `available`.
+4. **Recipient / Patient Registration**:
+   - Patients requiring an organ are registered with ABO blood group, HLA tissue profile, required organ, facility location, and medical urgency (`status_1_critical`, `status_2_urgent`, `routine`).
+   - Waiting time (`waiting_since`) is captured to establish priority for the upcoming Phase 3 matching engine.
+5. **Cryptographic Audit Provenance**:
+   - Every mutation is authorized server-side and recorded in `audit_logs` using SHA-256 hash chaining.
 
 ---
 
-## 5. Running Locally
+## 3. Database Schema & Tables
+
+### Tables Overview
+
+1. **`profiles`**
+   - References `auth.users(id) ON DELETE CASCADE`.
+   - Fields: `id`, `email`, `full_name`, `role` (`app_role` enum), `avatar_url`, `phone`, `blood_group`, `created_at`, `updated_at`.
+2. **`donors`**
+   - Fields: `id`, `profile_id`, `donor_reference` (unique), `full_name`, `date_of_birth`, `gender`, `blood_group`, `tissue_type`, `location`, `contact_information`, `medical_status`, `consent_status`, `approval_status`, `approved_by`, `approved_at`, `created_at`, `updated_at`.
+   - Indexed on: `blood_group`, `tissue_type`, `approval_status`, `profile_id`.
+3. **`recipients`**
+   - Fields: `id`, `profile_id`, `recipient_reference` (unique), `full_name`, `date_of_birth`, `gender`, `blood_group`, `tissue_type`, `required_organ`, `location`, `medical_urgency`, `waiting_since`, `status`, `created_at`, `updated_at`.
+   - Indexed on: `blood_group`, `tissue_type`, `required_organ`, `medical_urgency`, `waiting_since`, `status`, `profile_id`.
+4. **`organs`**
+   - Fields: `id`, `organ_reference` (unique), `organ_type`, `donor_id` (references `donors.id`), `blood_group`, `tissue_type`, `location`, `availability_status`, `available_at`, `expiry_at`, `created_at`, `updated_at`.
+   - Indexed on: `organ_type`, `availability_status`, `blood_group`, `tissue_type`, `donor_id`.
+5. **`audit_logs`**
+   - Fields: `id`, `actor_user_id`, `actor_role`, `action`, `entity_type`, `entity_id`, `previous_state`, `new_state`, `metadata`, `previous_hash`, `current_hash`, `created_at`.
+   - Indexed on: `created_at DESC`, `entity_type`, `entity_id`, `actor_user_id`.
+
+---
+
+## 4. Role-Based Access Control (RBAC) & Row Level Security (RLS)
+
+| Role | Dashboard | Donors | Recipients | Organs | Audit Log | Profile |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Admin** | Full Overview | View / Create / Review | View / Create | View / Register / Update | Full View & Verify | View & Edit |
+| **Hospital** | Full Overview | View / Create / Review | View / Create | View / Register / Update | Full View & Verify | View & Edit |
+| **Donor** | My Donation | View / Register Own | &mdash; | View Own Donated | &mdash; | View & Edit |
+| **Recipient** | My Request | &mdash; | View / Register Own | &mdash; | &mdash; | View & Edit |
+
+### Strict RLS Policy Guarantees:
+- **Append-Only Audit Trail**: `audit_logs` has **NO UPDATE** and **NO DELETE** policies for any authenticated role.
+- **Anti-Self-Escalation**: Donors cannot approve their own registration; the RLS policy forbids updating `approval_status` unless the caller is `hospital` or `admin`.
+- **Profile Protection**: Users cannot modify their own `role` field.
+
+---
+
+## 5. Tamper-Evident Cryptographic Audit Chain
+
+OrganLink provides tamper-evident integrity without the high latency and transaction costs of blockchain:
+
+$$\text{Block}_0: \quad \text{previous\_hash} = \text{GENESIS\_BLOCK\_ORGANLINK}$$
+$$\text{Block}_N: \quad \text{current\_hash} = \text{SHA-256}(\text{previous\_hash} + \text{action} + \text{entity} + \text{payload} + \text{timestamp})$$
+
+The client application includes a real-time verification utility (`verifyAuditChainIntegrity()`) accessible on `/app/audit` that sequentially validates that each record's link and recalculated hash are authentic.
+
+---
+
+## 6. Supabase Setup Instructions
+
+1. Log in to [Supabase Dashboard](https://supabase.com/dashboard) and navigate to **SQL Editor**.
+2. Run the initial migration:
+   - `supabase/migrations/20240101000000_create_profiles.sql` (Creates `app_role`, `profiles`, and auth triggers).
+3. Run the Phase 2 core entities migration:
+   - `supabase/migrations/20260925_organlink_core_entities.sql` (Creates `donors`, `recipients`, `organs`, `audit_logs`, and RLS policies).
+
+---
+
+## 7. Local Development
 
 ```bash
 # 1. Install dependencies
 npm install
 
-# 2. Run development server
+# 2. Configure environment variables in .env.local
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# 3. Run development server
 npm run dev
 
-# 3. Test production build
+# 4. Run production build test
 npm run build
 npm run start
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) in your browser.
+Visit [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 6. Authentication Flows
+## 8. Deployment to Vercel
 
-1. **Initial Selection Screen**:
-   - Displays clean OrganLink logo, title, "Continue with email", and "Continue with Google".
-2. **Email Credentials Screen**:
-   - Clicking "Continue with email" smoothly animates to the credentials view.
-   - Form validates email format and password length using Zod.
-   - Calls `supabase.auth.signInWithPassword({ email, password })`.
-   - "Log in" button shows "Logging in..." with spinner while disabling the button.
-   - Inline error banner surfaces safe, user-friendly messages for invalid credentials, rate limiting, or network errors without leaking database internals.
-   - "Back to login" button returns cleanly to the selection screen.
-3. **Session Persistence & Route Protection**:
-   - Cookies are managed via `@supabase/ssr` in `middleware.ts`.
-   - Visiting `/app/*` without a session redirects to `/login?redirectTo=...`.
-   - Visiting `/login` with an active session redirects to `/app/dashboard`.
-4. **Dashboard Placeholder & Logout**:
-   - `/app/dashboard` displays the authenticated user's email, assigned role, UID, and security badge.
-   - "Log out" button invokes `supabase.auth.signOut()` and redirects to `/login`.
-
----
-
-## 7. Deployment to Vercel
-
-1. Push your repository to GitHub / GitLab / Bitbucket.
-2. In Vercel, click **Add New Project** and select the repository.
-3. In **Environment Variables**, add:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. In Supabase Dashboard -> **Authentication -> URL Configuration**:
-   - Set **Site URL** to your Vercel deployment domain (e.g. `https://your-app.vercel.app`).
-   - Add `https://your-app.vercel.app/**` to **Redirect URLs**.
-5. Click **Deploy**.
+1. Commit and push repository changes to GitHub.
+2. Link the repository to Vercel.
+3. Configure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel Project Settings.
+4. Set **Site URL** in Supabase Auth Settings to your Vercel deployment URL.
+5. Deploy.
