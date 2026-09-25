@@ -120,12 +120,71 @@ export async function recordAuditEvent(params: AuditEventParams): Promise<AuditR
 }
 
 /**
- * Verifies sequential cryptographic integrity of the entire audit chain.
+ * Pure verification function that validates sequential cryptographic integrity
+ * of an array of audit records in memory.
+ */
+export function verifyRecordsIntegrity(records: AuditRecord[]): {
+  isValid: boolean;
+  totalRecords: number;
+  brokenIndex?: number;
+  tamperType?: "linkage" | "content";
+  details?: string;
+} {
+  if (!records || records.length === 0) {
+    return { isValid: true, totalRecords: 0, details: "Audit trail is empty (Genesis state)" };
+  }
+
+  let expectedPrevHash: string | null = null;
+
+  for (let i = 0; i < records.length; i++) {
+    const rec = records[i];
+
+    // Check hash-chain linkage (previous_hash pointer)
+    if (rec.previous_hash !== expectedPrevHash) {
+      return {
+        isValid: false,
+        totalRecords: records.length,
+        brokenIndex: i,
+        tamperType: "linkage",
+        details: `Chain link broken at index ${i}: expected previous_hash ${expectedPrevHash}, found ${rec.previous_hash}`,
+      };
+    }
+
+    // Recompute deterministic SHA-256 hash
+    const recalculated = computeAuditHash(rec.previous_hash, {
+      action: rec.action,
+      entityType: rec.entity_type,
+      entityId: rec.entity_id,
+      previousState: rec.previous_state,
+      newState: rec.new_state,
+      metadata: rec.metadata,
+      timestamp: rec.created_at,
+    });
+
+    if (recalculated !== rec.current_hash) {
+      return {
+        isValid: false,
+        totalRecords: records.length,
+        brokenIndex: i,
+        tamperType: "content",
+        details: `Content tampering detected at index ${i} (ID: ${rec.id}): stored hash ${rec.current_hash} != recalculated ${recalculated}`,
+      };
+    }
+
+    expectedPrevHash = rec.current_hash;
+  }
+
+  return { isValid: true, totalRecords: records.length, details: "All cryptographic block hashes verified" };
+}
+
+/**
+ * Verifies sequential cryptographic integrity of the entire audit chain from database.
  */
 export async function verifyAuditChainIntegrity(): Promise<{
   isValid: boolean;
   totalRecords: number;
   brokenIndex?: number;
+  tamperType?: "linkage" | "content";
   details?: string;
 }> {
   try {
@@ -139,50 +198,9 @@ export async function verifyAuditChainIntegrity(): Promise<{
       return { isValid: false, totalRecords: 0, details: error?.message || "Could not retrieve logs" };
     }
 
-    if (records.length === 0) {
-      return { isValid: true, totalRecords: 0, details: "Audit trail is empty (Genesis state)" };
-    }
-
-    let expectedPrevHash: string | null = null;
-
-    for (let i = 0; i < records.length; i++) {
-      const rec = records[i];
-
-      // Check linkage
-      if (rec.previous_hash !== expectedPrevHash) {
-        return {
-          isValid: false,
-          totalRecords: records.length,
-          brokenIndex: i,
-          details: `Chain link broken at index ${i}: expected previous_hash ${expectedPrevHash}, found ${rec.previous_hash}`,
-        };
-      }
-
-      // Recompute hash
-      const recalculated = computeAuditHash(rec.previous_hash, {
-        action: rec.action,
-        entityType: rec.entity_type,
-        entityId: rec.entity_id,
-        previousState: rec.previous_state,
-        newState: rec.new_state,
-        metadata: rec.metadata,
-        timestamp: rec.created_at,
-      });
-
-      if (recalculated !== rec.current_hash) {
-        return {
-          isValid: false,
-          totalRecords: records.length,
-          brokenIndex: i,
-          details: `Content tampering detected at index ${i} (ID: ${rec.id})`,
-        };
-      }
-
-      expectedPrevHash = rec.current_hash;
-    }
-
-    return { isValid: true, totalRecords: records.length, details: "All cryptographic block hashes verified" };
+    return verifyRecordsIntegrity(records as AuditRecord[]);
   } catch (err) {
     return { isValid: false, totalRecords: 0, details: String(err) };
   }
 }
+

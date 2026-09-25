@@ -9,7 +9,8 @@ export interface AuthInputProps extends InputProps {
 
 export const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
   ({ label, error, helperText, id, className = "", ...props }, ref) => {
-    const inputId = id || React.useId();
+    const generatedId = React.useId();
+    const inputId = id || generatedId;
     const errorId = `${inputId}-error`;
     const helperId = `${inputId}-helper`;
 

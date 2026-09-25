@@ -54,6 +54,7 @@ export interface MatchingEngineResult {
   rankedCandidates: CandidateRanking[];
   excludedCandidates: CandidateRanking[];
   totalEvaluated: number;
+  disclaimer: string;
 }
 
 // Database representations for runs, results, and reviews

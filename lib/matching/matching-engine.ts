@@ -7,6 +7,7 @@ import { scoreCandidate } from "./scoring";
 import {
   ALGORITHM_VERSION,
   DEFAULT_MATCHING_WEIGHTS,
+  RESEARCH_DISCLAIMER,
   type MatchingWeights,
 } from "./config";
 import type {
@@ -86,5 +87,7 @@ export function runMatchingEngine(
     rankedCandidates: ranked,
     excludedCandidates: excluded,
     totalEvaluated: recipients.length,
+    disclaimer: RESEARCH_DISCLAIMER,
   };
 }
+

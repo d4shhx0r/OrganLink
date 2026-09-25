@@ -36,3 +36,9 @@ export const DEFAULT_MATCHING_WEIGHTS: MatchingWeights = {
  * 730 days (~2 years) represents the upper scaling boundary for maximum waiting contribution.
  */
 export const MAX_WAITING_DAYS_BENCHMARK = 730;
+
+/**
+ * Mandatory Research Disclaimer displayed across matching interfaces and results.
+ */
+export const RESEARCH_DISCLAIMER =
+  "Research Prototype: The OrganLink matching score is a transparent prioritization model for demonstration and research purposes. It does not replace medical allocation protocols (e.g., UNOS / OPTN) or clinical decision-making.";

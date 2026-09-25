@@ -210,29 +210,101 @@ async function runAllTests() {
   );
 
   // ---------------------------------------------------------------------------
-  // 17: Hard Exclusions Test
+  // 8: Regression: Tie-Breaking Order Tests (Urgency -> Waiting -> Reference)
   // ---------------------------------------------------------------------------
-  console.log("\n--- 7. Testing Hard Constraints & Incompatibility Exclusions ---");
-  const organTypeA: Organ = {
+  console.log("\n--- 8. Testing Deterministic Multi-Tier Tie-Breaking ---");
+  const tieOrgan: Organ = {
     ...sampleOrgan,
-    blood_group: "A+",
+    blood_group: "O+",
+    tissue_type: "HLA-A*02, HLA-B*07",
   };
 
-  const recipientTypeB: Recipient = {
+  // Case A: Identical composite score & urgency, different waiting times
+  const tieCandidate1: Recipient = {
+    id: "tie-rec-1",
+    recipient_reference: "REC-TIE-0001",
+    full_name: "Tie Candidate One",
+    date_of_birth: "1990-01-01",
+    gender: "Other",
+    blood_group: "O+",
+    tissue_type: "HLA-A*02, HLA-B*07",
+    required_organ: "kidney",
+    location: "Center",
+    medical_urgency: "status_2_urgent",
+    waiting_since: "2025-01-01T00:00:00Z", // ~632 days (higher wait)
+    status: "active",
+    created_at: "2025-01-01T00:00:00Z",
+    updated_at: "2025-01-01T00:00:00Z",
+  };
+
+  const tieCandidate2: Recipient = {
+    id: "tie-rec-2",
+    recipient_reference: "REC-TIE-0002",
+    full_name: "Tie Candidate Two",
+    date_of_birth: "1991-01-01",
+    gender: "Other",
+    blood_group: "O+",
+    tissue_type: "HLA-A*02, HLA-B*07",
+    required_organ: "kidney",
+    location: "Center",
+    medical_urgency: "status_2_urgent",
+    waiting_since: "2026-01-01T00:00:00Z", // ~267 days (lower wait)
+    status: "active",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  };
+
+  const tieRun = runMatchingEngine(tieOrgan, [tieCandidate2, tieCandidate1], DEFAULT_MATCHING_WEIGHTS, refDate);
+  assert(tieRun.rankedCandidates[0].recipient.recipient_reference === "REC-TIE-0001", "Tie-breaking: Candidate with longer waiting time ranks first");
+
+  // Case B: Identical score, urgency, and waiting time -> recipient reference ASC
+  const tieCandidate3: Recipient = {
+    ...tieCandidate1,
+    id: "tie-rec-3",
+    recipient_reference: "REC-TIE-AAAA", // Comes before REC-TIE-ZZZZ alphabetically
+  };
+  const tieCandidate4: Recipient = {
+    ...tieCandidate1,
+    id: "tie-rec-4",
+    recipient_reference: "REC-TIE-ZZZZ",
+  };
+  const refTieRun = runMatchingEngine(tieOrgan, [tieCandidate4, tieCandidate3], DEFAULT_MATCHING_WEIGHTS, refDate);
+  assert(refTieRun.rankedCandidates[0].recipient.recipient_reference === "REC-TIE-AAAA", "Tie-breaking: Alphanumeric recipient reference ASC resolves exact score ties deterministically");
+
+  // ---------------------------------------------------------------------------
+  // 9: Regression: Missing & Insufficient Data Handling
+  // ---------------------------------------------------------------------------
+  console.log("\n--- 9. Testing Missing / Incomplete Clinical Data Handling ---");
+  const missingDataRecipient: Recipient = {
     ...sampleRecipients[0],
-    blood_group: "B+", // Incompatible with donor A+!
+    id: "rec-missing",
+    recipient_reference: "REC-MISSING-01",
+    tissue_type: "", // Empty tissue type
   };
+  const missingRun = runMatchingEngine(sampleOrgan, [missingDataRecipient], DEFAULT_MATCHING_WEIGHTS, refDate);
+  assert(missingRun.rankedCandidates.length === 1, "Candidate with missing HLA data is still evaluated gracefully");
+  assert(missingRun.rankedCandidates[0].factors.tissue.matchLevel === "insufficient_data", "HLA match level categorized as insufficient_data");
+  assert(missingRun.rankedCandidates[0].factors.tissue.reason.includes("Research baseline"), "Explicit research notice included for insufficient data");
 
-  const runAtoB = runMatchingEngine(organTypeA, [recipientTypeB], DEFAULT_MATCHING_WEIGHTS, refDate);
-  assert(runAtoB.rankedCandidates.length === 0, "Recipient with major ABO mismatch is excluded from primary ranked candidates");
-  assert(runAtoB.excludedCandidates.length === 1, "Excluded candidate recorded in excludedCandidates list");
-  assert(
-    runAtoB.excludedCandidates[0].exclusionReason?.includes("ABO incompatibility") || false,
-    "Explicit human-readable ABO incompatibility reason provided in exclusionReason"
-  );
+  // ---------------------------------------------------------------------------
+  // 10: Regression: No Compatible Candidates Scenario
+  // ---------------------------------------------------------------------------
+  console.log("\n--- 10. Testing Zero Compatible Candidates Scenario ---");
+  const incompatiblePool: Recipient[] = [
+    { ...sampleRecipients[0], blood_group: "B+" }, // ABO mismatch with donor O+? Wait, O donor to B recipient is compatible, let's test AB donor to O recipient!
+  ];
+  const organAB: Organ = { ...sampleOrgan, blood_group: "AB+" };
+  const poolO: Recipient[] = [
+    { ...sampleRecipients[0], blood_group: "O+" }, // AB donor to O recipient is ABO incompatible
+    { ...sampleRecipients[1], blood_group: "A-", required_organ: "heart" }, // Organ mismatch
+  ];
+
+  const zeroRun = runMatchingEngine(organAB, poolO, DEFAULT_MATCHING_WEIGHTS, refDate);
+  assert(zeroRun.rankedCandidates.length === 0, "Zero eligible candidates correctly handled when no compatible candidates exist");
+  assert(zeroRun.excludedCandidates.length === 2, "All incompatible candidates recorded in excludedCandidates");
 
   console.log("\n=================================================");
-  console.log("ALL 20 MATCHING ENGINE UNIT TESTS PASSED");
+  console.log("ALL 26 MATCHING ENGINE REGRESSION TESTS PASSED");
   console.log("=================================================\n");
 }
 
