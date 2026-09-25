@@ -1,0 +1,6 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="48" height="48" rx="12" fill="#7C00D9"/>
+  <!-- Interlocking life connection rings -->
+  <path d="M19 16C15.6863 16 13 18.6863 13 22C13 25.3137 15.6863 28 19 28H23C26.3137 28 29 25.3137 29 22" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <path d="M29 32C32.3137 32 35 29.3137 35 26C35 22.6863 32.3137 20 29 20H25C21.6863 20 19 22.6863 19 26" stroke="white" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Primary Accent - Professional Deep Purple */
+  --primary: #7C00D9;
+  --primary-hover: #6c00bd;
+  --primary-active: #5c00a1;
+  --primary-subtle: #f6eefd;
+  --primary-ring: rgba(124, 0, 217, 0.18);
+
+  /* Inputs & Surfaces */
+  --input-bg: #F1F3F3;
+  --input-border: #E5E7EB;
+  --input-hover: #ECEEEE;
+  --input-focus: #7C00D9;
+
+  /* Typography */
+  --text-primary: #171717;
+  --text-muted: #6B7280;
+  --text-subtle: #9CA3AF;
+
+  /* Status Colors */
+  --error: #DC2626;
+  --error-bg: #FEF2F2;
+  --error-border: #FEE2E2;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle focus outlines */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Hide autofill yellow background in Webkit */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 40px #F1F3F3 inset !important;
+  -webkit-text-fill-color: #171717 !important;
+  caret-color: #171717;
+  transition: background-color 5000s ease-in-out 0s;
+}
