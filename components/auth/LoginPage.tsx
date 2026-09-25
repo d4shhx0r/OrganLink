@@ -66,12 +66,26 @@ export function LoginPage() {
 
       {/* Bottom Minimal Footer */}
       <footer className="w-full py-4 text-center">
-        <div className="flex items-center justify-center gap-4 text-xs text-[#9CA3AF]">
-          <span>OrganLink v1.0</span>
-          <span>•</span>
-          <span>HIPAA &amp; GDPR Compliant Architecture</span>
-          <span>•</span>
-          <span>Protected by 256-bit SSL</span>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-xs text-[#9CA3AF]">
+          <div className="flex items-center gap-3">
+            <span>OrganLink v1.0</span>
+            <span>•</span>
+            <span>HIPAA &amp; GDPR Compliant Architecture</span>
+            <span>•</span>
+            <span>Protected by 256-bit SSL</span>
+          </div>
+          <span className="hidden sm:inline">•</span>
+          <div>
+            <span>Made by </span>
+            <a
+              href="https://www.linkedin.com/in/debashishbordoloi/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#7C00D9] hover:underline font-medium"
+            >
+              Debashish
+            </a>
+          </div>
         </div>
       </footer>
     </main>

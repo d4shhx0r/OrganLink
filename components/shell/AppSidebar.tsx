@@ -129,13 +129,24 @@ export function AppSidebar({ role, isOpen, onClose }: AppSidebarProps) {
         })}
       </nav>
 
-      {/* Footer Role Badge */}
-      <div className="p-4 border-t border-[#F3F4F6] bg-[#FAFAFA]">
+      {/* Footer Role Badge & Attribution */}
+      <div className="p-4 border-t border-[#F3F4F6] bg-[#FAFAFA] space-y-2">
         <div className="flex items-center justify-between text-xs">
           <span className="text-[#6B7280]">Active Role</span>
           <span className="px-2 py-0.5 rounded-md font-medium capitalize bg-white border border-[#E5E7EB] text-[#171717]">
             {role}
           </span>
+        </div>
+        <div className="text-[11px] text-[#9CA3AF] text-center pt-1 border-t border-gray-100">
+          Made by{" "}
+          <a
+            href="https://www.linkedin.com/in/debashishbordoloi/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#7C00D9] hover:underline font-medium"
+          >
+            Debashish
+          </a>
         </div>
       </div>
     </div>

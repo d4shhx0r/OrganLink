@@ -33,6 +33,18 @@ export function AppShell({ userEmail, role, children }: AppShellProps) {
         <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto">
           {children}
         </main>
+        <footer className="py-4 border-t border-[#F3F4F6] text-center text-xs text-[#9CA3AF]">
+          <span>OrganLink • </span>
+          <span>Made by </span>
+          <a
+            href="https://www.linkedin.com/in/debashishbordoloi/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#7C00D9] hover:underline font-medium"
+          >
+            Debashish
+          </a>
+        </footer>
       </div>
     </div>
   );
